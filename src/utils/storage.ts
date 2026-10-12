@@ -344,46 +344,13 @@ export function recordCompletedWorkout(
 }
 
 /**
- * Seed starter sample data for immediate visualization
+ * Seed starter sample data for immediate visualization.
+ * Only seeds calendar events (team practices) — no fake completed workouts,
+ * so the recommended next day always starts at Day 1.
  */
 export function populateSampleData(): void {
   const today = new Date();
   const formatIso = (d: Date) => d.toISOString().split('T')[0];
-
-  const d1 = new Date(today);
-  d1.setDate(today.getDate() - 2);
-
-  const d2 = new Date(today);
-  d2.setDate(today.getDate() - 1);
-
-  const sampleWorkouts: WorkoutRecord[] = [
-    {
-      id: 'sample-1',
-      date: formatIso(d1),
-      dayId: 'day-1',
-      dayTitle: 'Day 1: Beating a Defender & Accelerating',
-      completedDrillIds: ['day1-drill1', 'day1-drill2'],
-      totalDrills: 2,
-      durationMinutes: 16,
-      rating: 5,
-      notes: 'Super fast on the shoulder drop fake! Hit turbo on drill 2.',
-      completedAt: d1.toISOString(),
-      xpEarned: 200,
-    },
-    {
-      id: 'sample-2',
-      date: formatIso(d2),
-      dayId: 'day-2',
-      dayTitle: 'Day 2: Passing & Shooting',
-      completedDrillIds: ['day2-drill1', 'day2-drill2', 'day2-drill3'],
-      totalDrills: 3,
-      durationMinutes: 20,
-      rating: 5,
-      notes: 'Laces strike into the top corner! 20 clean wall passes in a row.',
-      completedAt: d2.toISOString(),
-      xpEarned: 240,
-    },
-  ];
 
   const dPractice1 = new Date(today);
   dPractice1.setDate(today.getDate() - 3);
@@ -406,27 +373,24 @@ export function populateSampleData(): void {
     },
   ];
 
-  saveWorkouts(sampleWorkouts);
+  // Only set events — do not overwrite workouts or XP so real progress is preserved
   saveCalendarCustomEvents(sampleEvents);
 
-  const sampleProfile: PlayerProfile = {
-    name: 'Leo',
-    jerseyNumber: 10,
-    position: 'Attacking Midfielder',
-    favoriteTeam: 'Real Madrid',
-    favoriteColor: 'emerald',
-    avatarIcon: '⚡',
-    level: 2,
-    currentXp: 590,
-  };
-  savePlayerProfile(sampleProfile);
-
-  // Unlock initial starter badges
-  unlockBadge('badge-first-step');
-  unlockBadge('badge-step-master');
-  unlockBadge('badge-turbo-pace');
-  unlockBadge('badge-wall-wizard');
-  unlockBadge('badge-rocket-boots');
+  // Set a fresh default profile only if one doesn't exist yet
+  const existing = getPlayerProfile();
+  if (existing.currentXp === 150 && existing.name === 'Leo') {
+    const freshProfile: PlayerProfile = {
+      name: 'Leo',
+      jerseyNumber: 10,
+      position: 'Attacking Midfielder',
+      favoriteTeam: 'Real Madrid',
+      favoriteColor: 'emerald',
+      avatarIcon: '⚡',
+      level: 1,
+      currentXp: 0,
+    };
+    savePlayerProfile(freshProfile);
+  }
 }
 
 export function clearAllData(): void {
