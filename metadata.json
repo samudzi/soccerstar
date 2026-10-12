@@ -1,0 +1,6 @@
+{
+  "name": "SoccerStar - Daily Homework & Badge Tracker",
+  "description": "Fun, guided daily soccer workouts for young players with visual pitch setups, practice calendar, and achievement badges.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
