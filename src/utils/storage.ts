@@ -1,4 +1,4 @@
-import { Badge, INITIAL_BADGES, PlayerProfile, TRAINING_PROGRAM, WorkoutRecord } from '../types/training';
+import { Badge, INITIAL_BADGES, PlayerProfile, TRAINING_PROGRAM, WorkoutRecord, MatchStats } from '../types/training';
 
 const PROFILE_KEY = 'soccerstar_profile_v1';
 const WORKOUTS_KEY = 'soccerstar_workouts_v1';
@@ -10,6 +10,7 @@ export interface CalendarCustomEvent {
   type: 'team-practice' | 'rest-day' | 'match-day' | 'homework';
   title: string;
   notes?: string;
+  matchStats?: MatchStats;
 }
 
 const DEFAULT_PROFILE: PlayerProfile = {
@@ -30,7 +31,12 @@ export const LEVEL_THRESHOLDS = [
   { level: 4, title: 'Wall Technician', minXp: 1200, maxXp: 1800 },
   { level: 5, title: 'Midfield Maestro', minXp: 1800, maxXp: 2600 },
   { level: 6, title: 'Golden Boot Prodigy', minXp: 2600, maxXp: 3600 },
-  { level: 7, title: 'World Cup Legend', minXp: 3600, maxXp: 5000 },
+  { level: 7, title: 'World Cup Legend', minXp: 3600, maxXp: 4800 },
+  { level: 8, title: 'Academy Phenom', minXp: 4800, maxXp: 6200 },
+  { level: 9, title: 'Diamond Playmaker', minXp: 6200, maxXp: 7800 },
+  { level: 10, title: 'Season MVP', minXp: 7800, maxXp: 9600 },
+  { level: 11, title: 'Ballon d\'Or Star', minXp: 9600, maxXp: 12000 },
+  { level: 12, title: 'Hall of Fame Champion', minXp: 12000, maxXp: 15000 },
 ];
 
 export function getPlayerProfile(): PlayerProfile {
@@ -394,28 +400,128 @@ export function recordCompletedWorkout(
     tryUnlock('badge-brick-wall');
   }
 
-  // Weekly Hat-trick: 3 sessions in current week
-  if (stats.weekHomeworkCount >= 3) {
-    tryUnlock('badge-hat-trick-hero');
-  }
+  // Drill Mastery Tiers (Brawl Stars & EA FC style progression)
+  const wallPassCount = updatedWorkouts.filter(w => w.completedDrillIds?.includes('day2-drill1')).length;
+  if (wallPassCount >= 5) tryUnlock('badge-wall-wizard-silver');
+  if (wallPassCount >= 15) tryUnlock('badge-wall-wizard-gold');
 
-  // Streak: 3 or more days
+  const shootingCount = updatedWorkouts.filter(w => w.completedDrillIds?.includes('day2-drill2')).length;
+  if (shootingCount >= 5) tryUnlock('badge-rocket-boots-silver');
+  if (shootingCount >= 15) tryUnlock('badge-rocket-boots-gold');
+
+  // Weekly Goal & Streaks
+  if (stats.weekHomeworkCount >= 3) {
+    tryUnlock('badge-week-1');
+  }
   if (stats.currentStreak >= 3) {
     tryUnlock('badge-streak-fire');
   }
-
-  // 1,000 XP
-  if (newXp >= 1000) {
-    tryUnlock('badge-golden-boot');
+  if (stats.currentStreak >= 7) {
+    tryUnlock('badge-streak-7');
+  }
+  if (stats.currentStreak >= 14) {
+    tryUnlock('badge-streak-14');
+  }
+  if (stats.currentStreak >= 30) {
+    tryUnlock('badge-streak-30');
   }
 
-  // 10 total activities
+  // Season Milestones (12-16 week roadmap)
+  if (updatedWorkouts.length >= 12) tryUnlock('badge-month-1');
+  if (updatedWorkouts.length >= 24) tryUnlock('badge-mid-season');
+  if (updatedWorkouts.length >= 36) tryUnlock('badge-season-legend-36');
+  if (updatedWorkouts.length >= 48) tryUnlock('badge-season-centurion-48');
+
+  // Total Soccer Activities (Homework + Team Practice + Matches)
   if (updatedWorkouts.length + customEvents.length >= 10) {
     tryUnlock('badge-team-captain');
   }
+  if (updatedWorkouts.length + customEvents.length >= 50) {
+    tryUnlock('badge-half-century');
+  }
+  if (updatedWorkouts.length + customEvents.length >= 100) {
+    tryUnlock('badge-century-club');
+  }
+
+  // Real-World Parent Reward Contracts (Brawl Pass / Season Vouchers)
+  if (updatedWorkouts.length >= 5) tryUnlock('reward-movie-night');
+  if (updatedWorkouts.length >= 10) tryUnlock('reward-ice-cream');
+  if (updatedWorkouts.length >= 18) tryUnlock('reward-grip-socks');
+  if (updatedWorkouts.length >= 28) tryUnlock('reward-matchday-feast');
+  if (updatedWorkouts.length >= 40) tryUnlock('reward-championship-ball');
 
   return {
     workout,
+    newlyUnlockedBadges,
+    xpGained: totalXpGained,
+  };
+}
+
+/**
+ * Record a weekend competitive match performance with goals, assists, tackles, dribbles, etc.
+ */
+export function recordMatchDay(
+  dateStr: string,
+  stats: MatchStats,
+  notes: string = ''
+): { event: CalendarCustomEvent; newlyUnlockedBadges: Badge[]; xpGained: number } {
+  const baseXP = 150;
+  const statXP = (stats.goals * 60) + (stats.assists * 50) + (stats.successfulDribbles * 20) + (stats.tackles * 20);
+  const totalXpGained = baseXP + statXP;
+
+  const event: CalendarCustomEvent = {
+    date: dateStr,
+    type: 'match-day',
+    title: stats.goals > 0 || stats.assists > 0 ? `Match Day (${stats.goals}G / ${stats.assists}A) 🏆` : 'Match Day 🏆',
+    notes,
+    matchStats: stats,
+  };
+
+  const existing = getCalendarCustomEvents().filter(e => !(e.date === dateStr && e.type === 'match-day'));
+  const updatedEvents = [...existing, event];
+  saveCalendarCustomEvents(updatedEvents);
+
+  // Update profile XP
+  const profile = getPlayerProfile();
+  const newXp = profile.currentXp + totalXpGained;
+  const levelInfo = calculateLevel(newXp);
+  const updatedProfile: PlayerProfile = {
+    ...profile,
+    currentXp: newXp,
+    level: levelInfo.level,
+  };
+  savePlayerProfile(updatedProfile);
+
+  const workouts = getWorkouts();
+  const newlyUnlockedBadges: Badge[] = [];
+
+  const tryUnlock = (badgeId: string) => {
+    const isNew = unlockBadge(badgeId);
+    if (isNew) {
+      const b = INITIAL_BADGES.find(x => x.id === badgeId);
+      if (b) newlyUnlockedBadges.push(b);
+    }
+  };
+
+  // Match Specific Badges
+  if (stats.goals >= 1) tryUnlock('badge-first-goal');
+  if (stats.goals >= 2) tryUnlock('badge-match-brace');
+  if (stats.goals >= 3) tryUnlock('badge-match-hat-trick');
+  if (stats.assists >= 1) tryUnlock('badge-playmaker-assist');
+  if (stats.successfulDribbles >= 3) tryUnlock('badge-take-on-master');
+  if (stats.passesCompleted >= 10) tryUnlock('badge-metronome-passer');
+  if (stats.tackles >= 3) tryUnlock('badge-defensive-anchor');
+  if (stats.crosses >= 2) tryUnlock('badge-pinpoint-crosser');
+  if (stats.cleanSheet) tryUnlock('badge-clean-sheet');
+  if (stats.goals + stats.assists >= 3) tryUnlock('badge-match-mvp');
+
+  // Activity Milestones
+  if (workouts.length + updatedEvents.length >= 10) tryUnlock('badge-team-captain');
+  if (workouts.length + updatedEvents.length >= 50) tryUnlock('badge-half-century');
+  if (workouts.length + updatedEvents.length >= 100) tryUnlock('badge-century-club');
+
+  return {
+    event,
     newlyUnlockedBadges,
     xpGained: totalXpGained,
   };

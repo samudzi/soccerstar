@@ -42,12 +42,24 @@ export interface WorkoutRecord {
   xpEarned: number;
 }
 
+export interface MatchStats {
+  goals: number;
+  assists: number;
+  tackles: number;
+  successfulDribbles: number;
+  passesCompleted: number;
+  crosses: number;
+  cleanSheet: boolean;
+}
+
 export interface Badge {
   id: string;
   title: string;
   description: string;
   icon: string;
-  category: 'drills' | 'streak' | 'skills' | 'milestones';
+  category: 'drills' | 'streak' | 'skills' | 'milestones' | 'season' | 'match' | 'rewards';
+  tier?: 'bronze' | 'silver' | 'gold' | 'diamond' | 'legendary';
+  realWorldReward?: string;
   xpReward: number;
   unlockedAt?: string;
   progressText?: string;
@@ -276,20 +288,23 @@ export const TRAINING_PROGRAM: TrainingDay[] = [
 ];
 
 export const INITIAL_BADGES: Badge[] = [
+  // --- DRILL & SKILL MASTERIES (BRAWL STARS / EA FC PLAYSTYLES) ---
   {
     id: 'badge-first-step',
     title: 'First Kickoff',
     description: 'Completed your very first soccer homework session! Welcome to the club.',
     icon: '⚽',
     category: 'milestones',
+    tier: 'bronze',
     xpReward: 100,
   },
   {
     id: 'badge-step-master',
     title: 'Ankle Breaker',
-    description: 'Mastered the Step Right & Go Left deception move against the imaginary defender.',
+    description: 'Mastered the Step Right & Go Left deception move against the defender.',
     icon: '⚡',
     category: 'skills',
+    tier: 'bronze',
     xpReward: 150,
   },
   {
@@ -298,23 +313,62 @@ export const INITIAL_BADGES: Badge[] = [
     description: 'Exploded into 5th gear on the pace-change big touch acceleration drill.',
     icon: '🏎️',
     category: 'skills',
+    tier: 'bronze',
     xpReward: 150,
   },
   {
     id: 'badge-wall-wizard',
-    title: 'Wall Wizard',
-    description: 'Completed 5 straight minutes of clean wall passes with both left and right feet.',
+    title: 'Wall Wizard (Bronze)',
+    description: 'Completed clean wall passes with both left and right feet.',
     icon: '🧱',
     category: 'skills',
+    tier: 'bronze',
     xpReward: 150,
   },
   {
+    id: 'badge-wall-wizard-silver',
+    title: 'Wall Virtuoso (Silver)',
+    description: 'Logged 5 wall passing sessions! Rebound technique is becoming second nature.',
+    icon: '🥈',
+    category: 'skills',
+    tier: 'silver',
+    xpReward: 250,
+  },
+  {
+    id: 'badge-wall-wizard-gold',
+    title: 'Wall Grandmaster (Gold)',
+    description: 'Logged 15 wall passing sessions! Pristine two-touch and one-touch rebound mastery.',
+    icon: '🥇',
+    category: 'skills',
+    tier: 'gold',
+    xpReward: 400,
+  },
+  {
     id: 'badge-rocket-boots',
-    title: 'Rocket Launcher',
+    title: 'Rocket Launcher (Bronze)',
     description: 'Drilled 8 laces strikes with locked ankles from 10 yards out.',
     icon: '🚀',
     category: 'skills',
+    tier: 'bronze',
     xpReward: 150,
+  },
+  {
+    id: 'badge-rocket-boots-silver',
+    title: 'Cannon Foot (Silver)',
+    description: 'Logged 5 shooting power sessions. Consistent laces dip and sting on the ball.',
+    icon: '💥',
+    category: 'skills',
+    tier: 'silver',
+    xpReward: 250,
+  },
+  {
+    id: 'badge-rocket-boots-gold',
+    title: 'Sniper Supreme (Gold)',
+    description: 'Logged 15 shooting sessions! Elite precision and power strike technique.',
+    icon: '🎯',
+    category: 'skills',
+    tier: 'gold',
+    xpReward: 400,
   },
   {
     id: 'badge-xavi-vision',
@@ -322,6 +376,7 @@ export const INITIAL_BADGES: Badge[] = [
     description: 'Scanned shoulders like Xavi and made instant "Man On" or "Turn" decisions.',
     icon: '🧠',
     category: 'skills',
+    tier: 'bronze',
     xpReward: 150,
   },
   {
@@ -330,6 +385,7 @@ export const INITIAL_BADGES: Badge[] = [
     description: 'Cushioned aerial balls on foot, thigh, and chest right to the grass.',
     icon: '🪶',
     category: 'skills',
+    tier: 'bronze',
     xpReward: 150,
   },
   {
@@ -338,31 +394,147 @@ export const INITIAL_BADGES: Badge[] = [
     description: 'Practiced patient pressing discipline without diving in or lunging.',
     icon: '🛡️',
     category: 'skills',
+    tier: 'bronze',
     xpReward: 150,
   },
+
+  // --- MATCH DAY FEATS (WEEKEND GAME ACCOMPLISHMENTS) ---
   {
-    id: 'badge-hat-trick-hero',
-    title: 'Hat-Trick Hero',
-    description: 'Completed 3 soccer homework sessions in a single week! Outstanding dedication.',
-    icon: '🎩',
-    category: 'milestones',
-    xpReward: 250,
-  },
-  {
-    id: 'badge-streak-fire',
-    title: 'On Fire Streak',
-    description: 'Maintained active soccer training streak of 3 or more days in a row.',
-    icon: '🔥',
-    category: 'streak',
+    id: 'badge-first-goal',
+    title: 'First Match Goal',
+    description: 'Found the back of the net in a competitive match! The first of many.',
+    icon: '⚽',
+    category: 'match',
+    tier: 'bronze',
     xpReward: 200,
   },
   {
-    id: 'badge-golden-boot',
-    title: 'Golden Boot Star',
-    description: 'Earned over 1,000 Soccer Star XP points through dedicated home training.',
-    icon: '🏆',
-    category: 'milestones',
+    id: 'badge-match-brace',
+    title: 'Match Brace (2 Goals)',
+    description: 'Scored two goals in a single weekend match! Double trouble for defenders.',
+    icon: '🔥',
+    category: 'match',
+    tier: 'silver',
     xpReward: 300,
+  },
+  {
+    id: 'badge-match-hat-trick',
+    title: 'Match Hat-Trick (3 Goals)',
+    description: 'Scored 3 or more goals in one match! An unforgettable performance.',
+    icon: '🎩',
+    category: 'match',
+    tier: 'gold',
+    xpReward: 500,
+  },
+  {
+    id: 'badge-playmaker-assist',
+    title: 'Playmaker Assist',
+    description: 'Delivered a pinpoint pass leading directly to a teammate\'s match goal.',
+    icon: '👟',
+    category: 'match',
+    tier: 'bronze',
+    xpReward: 200,
+  },
+  {
+    id: 'badge-take-on-master',
+    title: '1v1 Take-On King',
+    description: 'Completed 3+ successful dribbles past defenders in a match!',
+    icon: '🌪️',
+    category: 'match',
+    tier: 'silver',
+    xpReward: 250,
+  },
+  {
+    id: 'badge-metronome-passer',
+    title: 'Metronome Passer',
+    description: 'Completed 10+ accurate passes to teammates during competitive match play.',
+    icon: '📐',
+    category: 'match',
+    tier: 'silver',
+    xpReward: 250,
+  },
+  {
+    id: 'badge-defensive-anchor',
+    title: 'Defensive Anchor',
+    description: 'Made 3+ clean tackles and won defensive duels in a game!',
+    icon: '🛑',
+    category: 'match',
+    tier: 'bronze',
+    xpReward: 200,
+  },
+  {
+    id: 'badge-pinpoint-crosser',
+    title: 'Pinpoint Crosser',
+    description: 'Whipped in 2+ dangerous crosses into the box from wide areas.',
+    icon: '🏹',
+    category: 'match',
+    tier: 'bronze',
+    xpReward: 200,
+  },
+  {
+    id: 'badge-clean-sheet',
+    title: 'Clean Sheet Shield',
+    description: 'Kept a clean sheet on defense or in goal — zero goals conceded!',
+    icon: '🧤',
+    category: 'match',
+    tier: 'silver',
+    xpReward: 300,
+  },
+  {
+    id: 'badge-match-mvp',
+    title: 'Match MVP Influence',
+    description: 'Total of 3+ goal contributions (goals + assists) in a single game!',
+    icon: '🌟',
+    category: 'match',
+    tier: 'gold',
+    xpReward: 400,
+  },
+
+  // --- SEASON MILESTONES (3-4 MONTH TROPHY ROAD) ---
+  {
+    id: 'badge-week-1',
+    title: 'Week 1 Kickoff',
+    description: 'Completed all 3 recommended homework sessions in your first training week.',
+    icon: '🥉',
+    category: 'season',
+    tier: 'bronze',
+    xpReward: 200,
+  },
+  {
+    id: 'badge-month-1',
+    title: 'Month 1 Veteran',
+    description: 'Logged 12 completed homework sessions! First month of solid habit built.',
+    icon: '🏅',
+    category: 'season',
+    tier: 'silver',
+    xpReward: 400,
+  },
+  {
+    id: 'badge-mid-season',
+    title: 'Mid-Season Dynamo',
+    description: 'Logged 24 completed sessions! Halfway through the 3-4 month season roadmap.',
+    icon: '🎖️',
+    category: 'season',
+    tier: 'gold',
+    xpReward: 600,
+  },
+  {
+    id: 'badge-season-legend-36',
+    title: 'Season Legend (36 Sessions)',
+    description: 'Completed 36 sessions — the official 3-month season standard of excellence!',
+    icon: '👑',
+    category: 'season',
+    tier: 'diamond',
+    xpReward: 800,
+  },
+  {
+    id: 'badge-season-centurion-48',
+    title: 'Season Centurion (48 Sessions)',
+    description: 'Completed 48 sessions — absolute master of the full 4-month season!',
+    icon: '🏆',
+    category: 'season',
+    tier: 'legendary',
+    xpReward: 1200,
   },
   {
     id: 'badge-team-captain',
@@ -370,6 +542,116 @@ export const INITIAL_BADGES: Badge[] = [
     description: 'Logged 10 total training activities including homework and team practices.',
     icon: '⭐',
     category: 'milestones',
+    tier: 'bronze',
+    xpReward: 250,
+  },
+  {
+    id: 'badge-half-century',
+    title: 'Half-Century Club (50 Activities)',
+    description: 'Logged 50 total soccer activities across homework, practices, and games.',
+    icon: '🌟',
+    category: 'season',
+    tier: 'gold',
+    xpReward: 500,
+  },
+  {
+    id: 'badge-century-club',
+    title: 'Century Club (100 Activities)',
+    description: 'Logged 100 total soccer activities across the whole season! Truly elite.',
+    icon: '💯',
+    category: 'season',
+    tier: 'legendary',
+    xpReward: 1500,
+  },
+
+  // --- STREAKS & HABIT FIRE ---
+  {
+    id: 'badge-streak-fire',
+    title: '3-Day Spark',
+    description: 'Maintained an active soccer training streak of 3 consecutive days.',
+    icon: '🔥',
+    category: 'streak',
+    tier: 'bronze',
+    xpReward: 200,
+  },
+  {
+    id: 'badge-streak-7',
+    title: '7-Day Inferno',
+    description: '1 full week uninterrupted streak! Dedication worthy of a pro academy player.',
+    icon: '⚡',
+    category: 'streak',
+    tier: 'silver',
     xpReward: 350,
   },
+  {
+    id: 'badge-streak-14',
+    title: '14-Day Iron Will',
+    description: '2 straight weeks of active soccer training without missing a single day.',
+    icon: '💎',
+    category: 'streak',
+    tier: 'gold',
+    xpReward: 600,
+  },
+  {
+    id: 'badge-streak-30',
+    title: '30-Day Legend Streak',
+    description: '30 days in a row! Unbelievable discipline and passion for the game.',
+    icon: '👑',
+    category: 'streak',
+    tier: 'legendary',
+    xpReward: 1000,
+  },
+
+  // --- REAL-WORLD PARENT REWARD CONTRACTS (BRAWL PASS / SEASON REWARDS) ---
+  {
+    id: 'reward-movie-night',
+    title: 'Friday Movie & Popcorn Boss',
+    description: 'Unlocked at 5 Workouts! Parent Voucher: You pick the Friday family movie & snacks.',
+    icon: '🍿',
+    category: 'rewards',
+    tier: 'bronze',
+    realWorldReward: 'Choose Friday family movie & snack bar of choice!',
+    xpReward: 200,
+  },
+  {
+    id: 'reward-ice-cream',
+    title: 'Post-Match Treat Run',
+    description: 'Unlocked at 10 Workouts! Parent Voucher: Ice cream parlor or favorite smoothie trip.',
+    icon: '🍦',
+    category: 'rewards',
+    tier: 'silver',
+    realWorldReward: 'Post-match ice cream or smoothie trip of your choice!',
+    xpReward: 300,
+  },
+  {
+    id: 'reward-grip-socks',
+    title: 'Pro Grip Socks Upgrade',
+    description: 'Unlocked at 18 Workouts! Parent Voucher: New pair of pro soccer grip socks or shinguards.',
+    icon: '🧦',
+    category: 'rewards',
+    tier: 'gold',
+    realWorldReward: 'New pair of soccer grip socks or training shinguards!',
+    xpReward: 500,
+  },
+  {
+    id: 'reward-matchday-feast',
+    title: 'Matchday Feast Leader',
+    description: 'Unlocked at 28 Workouts! Parent Voucher: You choose the family dinner spot after a match.',
+    icon: '🍕',
+    category: 'rewards',
+    tier: 'gold',
+    realWorldReward: 'Choose family matchday dinner (Pizza, Burgers, or favorite spot)!',
+    xpReward: 700,
+  },
+  {
+    id: 'reward-championship-ball',
+    title: 'Season Grand Champion Prize',
+    description: 'Unlocked at 40 Workouts! Parent Voucher: Official match ball or favorite player jersey!',
+    icon: '🎁',
+    category: 'rewards',
+    tier: 'legendary',
+    realWorldReward: 'Official soccer match ball or authentic player jersey of choice!',
+    xpReward: 1200,
+  },
 ];
+

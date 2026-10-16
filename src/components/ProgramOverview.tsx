@@ -229,10 +229,10 @@ export const ProgramOverview: React.FC<ProgramOverviewProps> = ({
                         href={drill.videoUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-xs text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+                        className="text-xs font-semibold text-slate-300 hover:text-emerald-300 flex items-center gap-1.5 transition-colors px-2 py-1 rounded-lg hover:bg-slate-800"
                       >
                         <span>Open on YouTube ({drill.sourceLabel})</span>
-                        <ExternalLink className="w-3 h-3" />
+                        <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     </div>
 
@@ -257,7 +257,7 @@ export const ProgramOverview: React.FC<ProgramOverviewProps> = ({
               </h3>
               <button
                 onClick={() => setPreviewVideoDrill(null)}
-                className="text-slate-400 hover:text-white p-1"
+                className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs font-bold transition-colors"
               >
                 ✕ Close
               </button>

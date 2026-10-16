@@ -36,7 +36,7 @@ export const WeeklySummaryCard: React.FC<WeeklySummaryCardProps> = ({
       <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl relative animate-fade-in print:bg-white print:text-black print:border-none print:shadow-none">
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors print:hidden"
+          className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 transition-colors print:hidden"
         >
           <X className="w-5 h-5" />
         </button>
@@ -117,14 +117,14 @@ export const WeeklySummaryCard: React.FC<WeeklySummaryCardProps> = ({
         <div className="flex gap-3 print:hidden">
           <button
             onClick={handlePrint}
-            className="flex-1 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2"
+            className="flex-1 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-slate-700 hover:border-slate-600 shadow-sm transition-all"
           >
-            <Printer className="w-4 h-4" />
+            <Printer className="w-4 h-4 text-emerald-400" />
             <span>Print Certificate</span>
           </button>
           <button
             onClick={onClose}
-            className="flex-1 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider"
+            className="flex-1 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
           >
             Done
           </button>

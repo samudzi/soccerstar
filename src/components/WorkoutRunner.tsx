@@ -260,8 +260,8 @@ export const WorkoutRunner: React.FC<WorkoutRunnerProps> = ({ day, onClose, onCo
             onClick={toggleSound}
             className={`p-2.5 rounded-xl border transition-colors ${
               isMuted
-                ? 'bg-slate-800 border-slate-700 text-slate-400'
-                : 'bg-emerald-950/70 border-emerald-500/50 text-emerald-400'
+                ? 'bg-slate-800 border-slate-700 text-slate-200 hover:text-white'
+                : 'bg-emerald-950/70 border-emerald-500/50 text-emerald-300'
             }`}
             title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
           >
@@ -270,7 +270,7 @@ export const WorkoutRunner: React.FC<WorkoutRunnerProps> = ({ day, onClose, onCo
           
           <button
             onClick={() => sound.playWhistle()}
-            className="px-3 py-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold hover:bg-amber-500/30 flex items-center gap-1.5 transition-all"
+            className="px-3 py-2 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold hover:bg-amber-500/30 flex items-center gap-1.5 transition-all shadow-sm"
             title="Blow referee whistle"
           >
             <span>📢 Whistle</span>
@@ -294,12 +294,12 @@ export const WorkoutRunner: React.FC<WorkoutRunnerProps> = ({ day, onClose, onCo
                       setCurrentDrillIndex(idx);
                       setIsRestMode(false);
                     }}
-                    className={`flex-1 py-2 px-3 rounded-xl border text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    className={`flex-1 py-2.5 px-3 rounded-xl border text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all ${
                       isCurrent
                         ? 'bg-emerald-600 text-white border-emerald-400 shadow-lg shadow-emerald-950'
                         : isDone
-                        ? 'bg-emerald-950/60 text-emerald-300 border-emerald-700/60'
-                        : 'bg-slate-800/80 text-slate-400 border-slate-700'
+                        ? 'bg-emerald-950/70 text-emerald-200 border-emerald-600/60'
+                        : 'bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700 border-slate-700'
                     }`}
                   >
                     {isDone ? (
@@ -491,7 +491,7 @@ export const WorkoutRunner: React.FC<WorkoutRunnerProps> = ({ day, onClose, onCo
                         </button>
                         <button
                           onClick={handleResetTimer}
-                          className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors"
+                          className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 transition-colors"
                           title="Reset Timer"
                         >
                           <RotateCcw className="w-4 h-4" />
@@ -508,7 +508,7 @@ export const WorkoutRunner: React.FC<WorkoutRunnerProps> = ({ day, onClose, onCo
                           if (currentDrillIndex > 0) setCurrentDrillIndex(currentDrillIndex - 1);
                         }}
                         disabled={currentDrillIndex === 0}
-                        className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-xs font-bold text-slate-300 flex items-center gap-1"
+                        className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 text-xs font-bold text-slate-200 flex items-center gap-1 transition-colors"
                       >
                         <ChevronLeft className="w-4 h-4" /> Previous
                       </button>
@@ -519,7 +519,7 @@ export const WorkoutRunner: React.FC<WorkoutRunnerProps> = ({ day, onClose, onCo
                           }
                         }}
                         disabled={currentDrillIndex === day.drills.length - 1}
-                        className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-xs font-bold text-slate-300 flex items-center gap-1"
+                        className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-700 text-xs font-bold text-slate-200 flex items-center gap-1 transition-colors"
                       >
                         Next <ChevronRight className="w-4 h-4" />
                       </button>

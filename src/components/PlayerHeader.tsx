@@ -138,7 +138,7 @@ export const PlayerHeader: React.FC<PlayerHeaderProps> = ({
             {/* Parent Guide Button */}
             <button
               onClick={onOpenParentGuide}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors flex items-center gap-1 text-xs font-bold"
+              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 transition-colors flex items-center gap-1.5 text-xs font-bold"
               title="Parent Training Guide & Coaching Cues"
             >
               <HelpCircle className="w-4 h-4 text-blue-400" />
@@ -150,8 +150,8 @@ export const PlayerHeader: React.FC<PlayerHeaderProps> = ({
               onClick={toggleSound}
               className={`p-2 rounded-xl border transition-colors ${
                 isMuted
-                  ? 'bg-slate-800 border-slate-700 text-slate-400'
-                  : 'bg-emerald-950/60 border-emerald-500/40 text-emerald-400'
+                  ? 'bg-slate-800 border-slate-700 text-slate-200 hover:text-white'
+                  : 'bg-emerald-950/70 border-emerald-500/60 text-emerald-300'
               }`}
               title={isMuted ? 'Unmute sounds' : 'Mute sounds'}
             >
@@ -167,7 +167,7 @@ export const PlayerHeader: React.FC<PlayerHeaderProps> = ({
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative animate-fade-in">
             <button
               onClick={() => setIsEditing(false)}
-              className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors"
+              className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-slate-600 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -270,7 +270,7 @@ export const PlayerHeader: React.FC<PlayerHeaderProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsEditing(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300"
+                  className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 hover:border-slate-600 transition-colors"
                 >
                   Cancel
                 </button>

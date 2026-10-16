@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { WorkoutRecord, TRAINING_PROGRAM } from '../types/training';
-import { CalendarCustomEvent, saveCalendarCustomEvents, getCalendarCustomEvents } from '../utils/storage';
+import { WorkoutRecord, TRAINING_PROGRAM, Badge, MatchStats } from '../types/training';
+import { CalendarCustomEvent, saveCalendarCustomEvents, getCalendarCustomEvents, recordMatchDay } from '../utils/storage';
 import { sound } from '../utils/sound';
 import { 
   ChevronLeft, 
@@ -10,7 +10,11 @@ import {
   Plus, 
   Star, 
   X,
-  Target
+  Target,
+  Trophy,
+  Shield,
+  Zap,
+  Award
 } from 'lucide-react';
 
 interface VisualCalendarProps {
@@ -21,6 +25,7 @@ interface VisualCalendarProps {
   weekHomeworkCount: number;
   weekGoalTarget: number;
   weekTeamPracticeCount: number;
+  onMatchCompleted?: (newBadges: Badge[]) => void;
 }
 
 export const VisualCalendar: React.FC<VisualCalendarProps> = ({
@@ -31,23 +36,31 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
   weekHomeworkCount,
   weekGoalTarget,
   weekTeamPracticeCount,
+  onMatchCompleted,
 }) => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDateStr, setSelectedDateStr] = useState<string | null>(null);
   const [customEvents, setCustomEvents] = useState<CalendarCustomEvent[]>(getCalendarCustomEvents());
+
+  // Match Day Logger Modal state
+  const [isMatchModalOpen, setIsMatchModalOpen] = useState(false);
+  const [matchDate, setMatchDate] = useState<string>('');
+  const [matchGoals, setMatchGoals] = useState(0);
+  const [matchAssists, setMatchAssists] = useState(0);
+  const [matchTackles, setMatchTackles] = useState(0);
+  const [matchDribbles, setMatchDribbles] = useState(0);
+  const [matchPasses, setMatchPasses] = useState(0);
+  const [matchCrosses, setMatchCrosses] = useState(0);
+  const [matchCleanSheet, setMatchCleanSheet] = useState(false);
+  const [matchNotes, setMatchNotes] = useState('');
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'July', 'August', 'September', 'October', 'November', 'December'
   ];
-
-  const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 is Sunday
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-  const prevMonthDays = new Date(year, month, 0).getDate();
 
   const handlePrevMonth = () => {
     sound.playClick();
@@ -64,15 +77,14 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
     setCurrentDate(new Date());
   };
 
-  const formatIsoDate = (y: number, m: number, d: number) => {
-    const mm = String(m + 1).padStart(2, '0');
-    const dd = String(d).padStart(2, '0');
-    return `${y}-${mm}-${dd}`;
-  };
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayIndex = new Date(year, month, 1).getDay();
+
+  const prevMonthDays = new Date(year, month, 0).getDate();
+  const totalCells = Math.ceil((firstDayIndex + daysInMonth) / 7) * 7;
 
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Helper to get activities for a date
   const getDayWorkouts = (dateStr: string) => {
     return workouts.filter(w => w.date === dateStr);
   };
@@ -83,6 +95,20 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
 
   const handleAddCustomEvent = (dateStr: string, type: 'team-practice' | 'rest-day' | 'match-day') => {
     sound.playClick();
+    if (type === 'match-day') {
+      setMatchDate(dateStr);
+      setMatchGoals(0);
+      setMatchAssists(0);
+      setMatchTackles(0);
+      setMatchDribbles(0);
+      setMatchPasses(0);
+      setMatchCrosses(0);
+      setMatchCleanSheet(false);
+      setMatchNotes('');
+      setIsMatchModalOpen(true);
+      return;
+    }
+
     const titles = {
       'team-practice': 'Team Practice (2x/week)',
       'rest-day': 'Rest & Recovery',
@@ -99,6 +125,30 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
     onRefreshData();
   };
 
+  const handleSaveMatchPerformance = (e: React.FormEvent) => {
+    e.preventDefault();
+    sound.playCelebration();
+
+    const stats: MatchStats = {
+      goals: matchGoals,
+      assists: matchAssists,
+      tackles: matchTackles,
+      successfulDribbles: matchDribbles,
+      passesCompleted: matchPasses,
+      crosses: matchCrosses,
+      cleanSheet: matchCleanSheet,
+    };
+
+    const result = recordMatchDay(matchDate, stats, matchNotes);
+    setCustomEvents(getCalendarCustomEvents());
+    setIsMatchModalOpen(false);
+    onRefreshData();
+
+    if (result.newlyUnlockedBadges.length > 0 && onMatchCompleted) {
+      onMatchCompleted(result.newlyUnlockedBadges);
+    }
+  };
+
   const handleRemoveCustomEvent = (dateStr: string, type: string) => {
     sound.playClick();
     const updated = customEvents.filter(e => !(e.date === dateStr && e.type === type));
@@ -111,7 +161,7 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
   const selectedCustomEvents = selectedDateStr ? getDayCustomEvents(selectedDateStr) : [];
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-xl">
+    <div className="bg-slate-900/95 border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-xl">
       {/* Top Header: Streak & Weekly Progress */}
       <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-800">
         <div>
@@ -119,7 +169,7 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
             <span className="text-xs uppercase font-extrabold tracking-wider text-emerald-400">
               Training Schedule & Streaks
             </span>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase">
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black uppercase">
               3 Homework + 2 Practices / Wk
             </span>
           </div>
@@ -138,31 +188,40 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
                 Active Streak
               </div>
               <div className="text-lg font-black text-white font-mono leading-none">
-                {streak} {streak === 1 ? 'Day' : 'Days'} 🔥
+                {streak} Day{streak === 1 ? '' : 's'}
               </div>
             </div>
           </div>
 
-          {/* Weekly Goal Progress */}
-          <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-emerald-950/60 border border-emerald-500/40">
+          {/* Current Week Goal Pill */}
+          <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 shadow-sm">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400">
               <Target className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[10px] font-black uppercase tracking-wider text-emerald-300 flex items-center gap-1">
-                <span>Homework Target</span>
-                {weekHomeworkCount >= weekGoalTarget && <span className="text-amber-400">⭐ Done!</span>}
+              <div className="text-[10px] font-black uppercase tracking-wider text-emerald-300">
+                This Week Homework
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-black text-white font-mono">
-                  {weekHomeworkCount} / {weekGoalTarget}
-                </span>
-                <div className="w-16 h-2 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-400 transition-all duration-500"
-                    style={{ width: `${Math.min(100, (weekHomeworkCount / weekGoalTarget) * 100)}%` }}
-                  />
-                </div>
+              <div className="text-lg font-black text-white font-mono leading-none flex items-center gap-1.5">
+                <span>{weekHomeworkCount}/{weekGoalTarget}</span>
+                {weekHomeworkCount >= weekGoalTarget && (
+                  <span className="text-xs text-amber-300">⭐ Done</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Team Practice Pill */}
+          <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-blue-950/40 border border-blue-500/40 shadow-sm">
+            <div className="w-8 h-8 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400">
+              <Shield className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-wider text-blue-300">
+                Team Practices
+              </div>
+              <div className="text-lg font-black text-white font-mono leading-none">
+                {weekTeamPracticeCount}/2
               </div>
             </div>
           </div>
@@ -171,29 +230,29 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
 
       {/* Calendar Controls: Month Selector */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <h3 className="text-lg sm:text-xl font-black text-white">
             {monthNames[month]} {year}
           </h3>
           <button
             onClick={handleGoToday}
-            className="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 hover:border-slate-600 transition-colors"
           >
             Today
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <button
             onClick={handlePrevMonth}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 hover:border-slate-600 transition-colors"
             title="Previous month"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button
             onClick={handleNextMonth}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+            className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 hover:border-slate-600 transition-colors"
             title="Next month"
           >
             <ChevronRight className="w-4 h-4" />
@@ -202,7 +261,7 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
       </div>
 
       {/* Days of Week Header */}
-      <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2 text-center text-[11px] sm:text-xs font-extrabold uppercase tracking-wider text-slate-400">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2 text-center text-[11px] sm:text-xs font-black uppercase tracking-wider text-slate-400">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(dayName => (
           <div key={dayName} className="py-1">
             {dayName}
@@ -210,156 +269,123 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
         ))}
       </div>
 
-      {/* Calendar Grid Cells */}
+      {/* Calendar Grid */}
       <div className="grid grid-cols-7 gap-1 sm:gap-2">
-        {/* Previous Month Filler */}
-        {Array.from({ length: firstDayOfMonth }).map((_, i) => {
-          const prevDay = prevMonthDays - firstDayOfMonth + i + 1;
-          return (
-            <div
-              key={`prev-${i}`}
-              className="min-h-[70px] sm:min-h-[85px] p-1.5 sm:p-2 rounded-2xl bg-slate-950/30 border border-slate-900 opacity-40 text-slate-600 flex flex-col justify-between select-none"
-            >
-              <span className="text-xs font-bold">{prevDay}</span>
-            </div>
-          );
-        })}
+        {Array.from({ length: totalCells }).map((_, index) => {
+          let dayNumber: number;
+          let isCurrentMonth = true;
+          let cellDate: Date;
 
-        {/* Current Month Days */}
-        {Array.from({ length: daysInMonth }).map((_, i) => {
-          const dayNum = i + 1;
-          const dateStr = formatIsoDate(year, month, dayNum);
-          const isToday = dateStr === todayStr;
-          const isSelected = dateStr === selectedDateStr;
+          if (index < firstDayIndex) {
+            dayNumber = prevMonthDays - firstDayIndex + index + 1;
+            isCurrentMonth = false;
+            cellDate = new Date(year, month - 1, dayNumber);
+          } else if (index >= firstDayIndex + daysInMonth) {
+            dayNumber = index - (firstDayIndex + daysInMonth) + 1;
+            isCurrentMonth = false;
+            cellDate = new Date(year, month + 1, dayNumber);
+          } else {
+            dayNumber = index - firstDayIndex + 1;
+            cellDate = new Date(year, month, dayNumber);
+          }
 
-          const dayWorkouts = getDayWorkouts(dateStr);
-          const dayCustom = getDayCustomEvents(dateStr);
+          const isoStr = cellDate.toISOString().split('T')[0];
+          const isToday = isoStr === todayStr;
+          const isSelected = isoStr === selectedDateStr;
+
+          const dayWorkouts = getDayWorkouts(isoStr);
+          const dayCustomEvents = getDayCustomEvents(isoStr);
           const hasHomework = dayWorkouts.length > 0;
-          const hasPractice = dayCustom.some(e => e.type === 'team-practice');
-          const hasMatch = dayCustom.some(e => e.type === 'match-day');
-          const hasRest = dayCustom.some(e => e.type === 'rest-day');
+          const hasTeamPractice = dayCustomEvents.some(e => e.type === 'team-practice');
+          const hasMatch = dayCustomEvents.some(e => e.type === 'match-day');
+          const hasRest = dayCustomEvents.some(e => e.type === 'rest-day');
 
           return (
             <div
-              key={`day-${dayNum}`}
+              key={index}
               onClick={() => {
                 sound.playClick();
-                setSelectedDateStr(dateStr);
+                setSelectedDateStr(isoStr);
               }}
-              className={`min-h-[70px] sm:min-h-[85px] p-1.5 sm:p-2 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between group ${
+              className={`min-h-[75px] sm:min-h-[92px] p-1.5 sm:p-2 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between relative ${
                 isSelected
-                  ? 'ring-2 ring-emerald-400 bg-slate-800/90 border-emerald-500'
+                  ? 'ring-2 ring-emerald-400 bg-emerald-950/50 border-emerald-500/80 shadow-lg'
                   : isToday
-                  ? 'bg-emerald-950/40 border-emerald-500/60 shadow-md shadow-emerald-950/50'
-                  : 'bg-slate-950/60 border-slate-800/80 hover:bg-slate-800/50 hover:border-slate-700'
+                  ? 'border-emerald-500/70 bg-slate-900 shadow-md shadow-emerald-950/40'
+                  : isCurrentMonth
+                  ? 'border-slate-800 bg-slate-950/70 hover:border-slate-700 hover:bg-slate-900/60'
+                  : 'border-slate-900/40 bg-slate-950/30 opacity-40 hover:opacity-75'
               }`}
             >
+              {/* Day Number and Today Indicator */}
               <div className="flex items-center justify-between">
                 <span
-                  className={`text-xs sm:text-sm font-bold ${
+                  className={`text-xs sm:text-sm font-black font-mono ${
                     isToday
-                      ? 'w-6 h-6 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-black'
-                      : 'text-slate-300'
+                      ? 'w-6 h-6 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-bold'
+                      : isCurrentMonth
+                      ? 'text-slate-200'
+                      : 'text-slate-600'
                   }`}
                 >
-                  {dayNum}
+                  {dayNumber}
                 </span>
 
                 {isToday && (
-                  <span className="hidden sm:inline-block text-[9px] font-black uppercase tracking-wider text-emerald-400">
-                    TODAY
+                  <span className="hidden sm:inline-block text-[9px] uppercase font-black text-emerald-400">
+                    Today
                   </span>
                 )}
               </div>
 
-              {/* Badges / Dots on Date */}
-              <div className="flex flex-wrap gap-1 mt-1">
+              {/* Event Tags & Indicators */}
+              <div className="space-y-1 mt-1">
                 {hasHomework && (
-                  <div
-                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold"
-                    title="Soccer Homework Completed"
-                  >
-                    <span>⚽</span>
-                    <span className="hidden sm:inline text-[9px]">{dayWorkouts[0].dayId.replace('day-', 'D')}</span>
+                  <div className="px-1.5 py-0.5 rounded-lg bg-emerald-500/25 border border-emerald-400/40 text-emerald-200 text-[10px] font-black truncate flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                    <span className="truncate hidden sm:inline">
+                      {dayWorkouts[0].dayTitle.split(':')[0]}
+                    </span>
+                    <span className="sm:hidden">⚽</span>
                   </div>
                 )}
 
-                {hasPractice && (
-                  <div
-                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/40 text-[10px] font-bold"
-                    title="Team Practice"
-                  >
+                {hasTeamPractice && (
+                  <div className="px-1.5 py-0.5 rounded-lg bg-blue-500/25 border border-blue-400/40 text-blue-200 text-[10px] font-bold truncate flex items-center gap-1">
                     <span>🛡️</span>
-                    <span className="hidden sm:inline text-[9px]">Team</span>
+                    <span className="truncate hidden sm:inline">Practice</span>
                   </div>
                 )}
 
                 {hasMatch && (
-                  <div
-                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold"
-                    title="Match Day"
-                  >
+                  <div className="px-1.5 py-0.5 rounded-lg bg-amber-500/25 border border-amber-400/40 text-amber-200 text-[10px] font-bold truncate flex items-center gap-1">
                     <span>🏆</span>
+                    <span className="truncate hidden sm:inline">Match</span>
                   </div>
                 )}
 
                 {hasRest && (
-                  <div
-                    className="flex items-center gap-0.5 px-1 py-0.5 rounded-md bg-slate-800 text-slate-400 text-[10px]"
-                    title="Rest Day"
-                  >
+                  <div className="px-1.5 py-0.5 rounded-lg bg-slate-800 text-slate-400 text-[10px] font-medium truncate flex items-center gap-1">
                     <span>💤</span>
+                    <span className="truncate hidden sm:inline">Rest</span>
                   </div>
                 )}
-              </div>
-
-              <div className="text-[10px] text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity text-right">
-                View &rarr;
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Legend */}
-      <div className="mt-4 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-            <span className="text-slate-300 font-medium">⚽ Homework Completed</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-400" />
-            <span className="text-slate-300 font-medium">🛡️ Team Practice (2x/wk)</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-            <span className="text-slate-300 font-medium">🏆 Game / Match</span>
-          </div>
-        </div>
-
-        <div className="text-[11px] text-slate-400">
-          💡 Tap any day to log practices or view drill details!
-        </div>
-      </div>
-
-      {/* Day Details Modal */}
+      {/* Date Detail Drawer / Modal Overlay */}
       {selectedDateStr && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative animate-fade-in">
-            <button
-              onClick={() => setSelectedDateStr(null)}
-              className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="mb-4">
-              <span className="text-xs uppercase font-black tracking-wider text-emerald-400">
-                Day Schedule Detail
-              </span>
-              <h3 className="text-xl sm:text-2xl font-black text-white">
-                {new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', {
+        <div className="mt-6 p-4 sm:p-6 rounded-3xl bg-slate-950 border border-slate-800 animate-fade-in shadow-2xl">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div>
+              <div className="text-xs uppercase font-extrabold tracking-wider text-emerald-400">
+                Selected Day Details
+              </div>
+              <h3 className="text-lg sm:text-xl font-black text-white">
+                {new Date(selectedDateStr + 'T00:00:00').toLocaleDateString(undefined, {
                   weekday: 'long',
                   month: 'long',
                   day: 'numeric',
@@ -368,60 +394,77 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
               </h3>
             </div>
 
-            {/* List of existing activities on that day */}
-            <div className="space-y-3 mb-6">
+            <button
+              onClick={() => setSelectedDateStr(null)}
+              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left: Logged Activities for this date */}
+            <div className="space-y-3">
+              <div className="text-xs font-black uppercase tracking-wider text-slate-300">
+                Logged Activities:
+              </div>
+
               {selectedWorkouts.length === 0 && selectedCustomEvents.length === 0 ? (
-                <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 text-center text-slate-400 text-sm">
-                  No training recorded for this date yet.
+                <div className="p-5 rounded-2xl bg-slate-900/60 border border-dashed border-slate-800 text-center text-xs text-slate-400">
+                  No sessions logged for this day yet. Choose an action on the right to start training or log a match!
                 </div>
               ) : (
                 <>
                   {selectedWorkouts.map(w => (
                     <div
                       key={w.id}
-                      className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 flex items-start justify-between gap-3"
+                      className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between"
                     >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          <span className="text-sm font-black text-white">{w.dayTitle}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                          ⚽
                         </div>
-                        <div className="text-xs text-emerald-300/80 mt-1">
-                          {w.completedDrillIds.length} drills completed • {w.durationMinutes} mins • +{w.xpEarned} XP
-                        </div>
-                        {w.notes && (
-                          <div className="mt-2 text-xs italic text-slate-300 bg-emerald-950/60 px-3 py-1.5 rounded-xl border border-emerald-800/40">
-                            "{w.notes}"
+                        <div>
+                          <div className="text-sm font-extrabold text-white">{w.dayTitle}</div>
+                          <div className="text-xs text-slate-300 flex items-center gap-2 mt-0.5">
+                            <span>⏱️ {w.durationMinutes}m</span>
+                            <span>•</span>
+                            <span className="text-emerald-300 font-bold">+{w.xpEarned} XP</span>
                           </div>
-                        )}
-                      </div>
-                      {w.rating && (
-                        <div className="flex items-center gap-0.5 text-amber-400">
-                          {Array.from({ length: w.rating }).map((_, idx) => (
-                            <Star key={idx} className="w-3.5 h-3.5 fill-amber-400" />
-                          ))}
                         </div>
-                      )}
+                      </div>
+                      <div className="flex items-center gap-1 text-amber-400 text-xs font-bold">
+                        <Star className="w-3.5 h-3.5 fill-amber-400" />
+                        <span>{w.rating || 5}/5</span>
+                      </div>
                     </div>
                   ))}
 
-                  {selectedCustomEvents.map((evt, idx) => (
+                  {selectedCustomEvents.map((evt, i) => (
                     <div
-                      key={idx}
-                      className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-center justify-between"
+                      key={i}
+                      className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between"
                     >
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-3">
                         <span className="text-xl">
                           {evt.type === 'team-practice' ? '🛡️' : evt.type === 'match-day' ? '🏆' : '💤'}
                         </span>
                         <div>
                           <div className="text-sm font-bold text-white">{evt.title}</div>
-                          {evt.notes && <div className="text-xs text-slate-400">{evt.notes}</div>}
+                          {evt.notes && <div className="text-xs text-slate-300">{evt.notes}</div>}
+                          {evt.matchStats && (
+                            <div className="text-[11px] text-amber-300 font-semibold mt-0.5 flex flex-wrap gap-2">
+                              <span>⚽ {evt.matchStats.goals} Goals</span>
+                              <span>👟 {evt.matchStats.assists} Assists</span>
+                              <span>🛡️ {evt.matchStats.tackles} Tackles</span>
+                              {evt.matchStats.cleanSheet && <span>🧤 Clean Sheet</span>}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <button
                         onClick={() => handleRemoveCustomEvent(selectedDateStr, evt.type)}
-                        className="text-xs text-rose-400 hover:text-rose-300 p-1"
+                        className="px-2.5 py-1 rounded-lg bg-rose-950/50 hover:bg-rose-900/70 text-rose-300 border border-rose-800/60 text-xs font-bold transition-colors"
                         title="Remove event"
                       >
                         Remove
@@ -432,9 +475,9 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
               )}
             </div>
 
-            {/* Quick Actions to add or start workout */}
+            {/* Right: Quick Actions to add or start workout */}
             <div className="space-y-3">
-              <div className="text-xs font-black uppercase tracking-wider text-slate-400">
+              <div className="text-xs font-black uppercase tracking-wider text-slate-300">
                 Log or Start Activity:
               </div>
 
@@ -448,10 +491,10 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
                       setSelectedDateStr(null);
                       onStartDayWorkout(p.id, selectedDateStr);
                     }}
-                    className="p-2.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-600/40 text-left text-xs text-emerald-200 transition-all hover:scale-[1.02]"
+                    className="p-3 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/50 text-left text-xs transition-all hover:scale-[1.02]"
                   >
-                    <div className="font-extrabold text-white truncate">Day {p.dayNumber}</div>
-                    <div className="text-[10px] text-emerald-300/80 truncate">{p.theme}</div>
+                    <div className="font-extrabold text-white truncate text-sm">Day {p.dayNumber}</div>
+                    <div className="text-xs text-emerald-200 truncate">{p.theme}</div>
                   </button>
                 ))}
               </div>
@@ -460,26 +503,244 @@ export const VisualCalendar: React.FC<VisualCalendarProps> = ({
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={() => handleAddCustomEvent(selectedDateStr, 'team-practice')}
-                  className="flex-1 py-2 px-3 rounded-xl bg-blue-950/50 hover:bg-blue-900/70 border border-blue-500/40 text-xs font-bold text-blue-200 flex items-center justify-center gap-1.5 transition-colors"
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-blue-950/70 hover:bg-blue-900/90 border border-blue-400/60 text-xs font-extrabold text-blue-100 flex items-center justify-center gap-1.5 transition-colors shadow-sm"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>+ Team Practice</span>
                 </button>
                 <button
                   onClick={() => handleAddCustomEvent(selectedDateStr, 'match-day')}
-                  className="flex-1 py-2 px-3 rounded-xl bg-amber-950/50 hover:bg-amber-900/70 border border-amber-500/40 text-xs font-bold text-amber-200 flex items-center justify-center gap-1.5 transition-colors"
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-amber-950/70 hover:bg-amber-900/90 border border-amber-400/60 text-xs font-extrabold text-amber-100 flex items-center justify-center gap-1.5 transition-colors shadow-sm"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Trophy className="w-3.5 h-3.5" />
                   <span>+ Match Day</span>
                 </button>
                 <button
                   onClick={() => handleAddCustomEvent(selectedDateStr, 'rest-day')}
-                  className="py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition-colors"
+                  className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition-colors"
                 >
                   💤 Rest
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Match Day Performance Modal */}
+      {isMatchModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative animate-fade-in max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setIsMatchModalOpen(false)}
+              className="absolute top-5 right-5 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-2xl shadow-lg shadow-amber-500/25">
+                🏆
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white">Log Match Performance</h3>
+                <p className="text-xs text-slate-300">
+                  Record goals, assists, and defensive feats to unlock match badges!
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveMatchPerformance} className="space-y-4 pt-3">
+              {/* Stepper Counters Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Goals */}
+                <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-black uppercase text-amber-300">⚽ Goals</div>
+                    <div className="text-xl font-mono font-black text-white">{matchGoals}</div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setMatchGoals(Math.max(0, matchGoals - 1))}
+                      className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-base"
+                    >
+                      -
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMatchGoals(matchGoals + 1)}
+                      className="w-8 h-8 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black flex items-center justify-center text-base"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Assists */}
+                <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-black uppercase text-amber-300">👟 Assists</div>
+                    <div className="text-xl font-mono font-black text-white">{matchAssists}</div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setMatchAssists(Math.max(0, matchAssists - 1))}
+                      className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-base"
+                    >
+                      -
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMatchAssists(matchAssists + 1)}
+                      className="w-8 h-8 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black flex items-center justify-center text-base"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Dribbles */}
+                <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-black uppercase text-amber-300">⚡ 1v1 Dribbles</div>
+                    <div className="text-xl font-mono font-black text-white">{matchDribbles}</div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setMatchDribbles(Math.max(0, matchDribbles - 1))}
+                      className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-base"
+                    >
+                      -
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMatchDribbles(matchDribbles + 1)}
+                      className="w-8 h-8 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black flex items-center justify-center text-base"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tackles */}
+                <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-black uppercase text-amber-300">🛡️ Clean Tackles</div>
+                    <div className="text-xl font-mono font-black text-white">{matchTackles}</div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setMatchTackles(Math.max(0, matchTackles - 1))}
+                      className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-base"
+                    >
+                      -
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMatchTackles(matchTackles + 1)}
+                      className="w-8 h-8 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black flex items-center justify-center text-base"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Passes */}
+                <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-black uppercase text-amber-300">📐 Good Passes</div>
+                    <div className="text-xl font-mono font-black text-white">{matchPasses}</div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setMatchPasses(Math.max(0, matchPasses - 1))}
+                      className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-base"
+                    >
+                      -
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMatchPasses(matchPasses + 1)}
+                      className="w-8 h-8 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black flex items-center justify-center text-base"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Crosses */}
+                <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-black uppercase text-amber-300">🏹 Crosses</div>
+                    <div className="text-xl font-mono font-black text-white">{matchCrosses}</div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setMatchCrosses(Math.max(0, matchCrosses - 1))}
+                      className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center text-base"
+                    >
+                      -
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMatchCrosses(matchCrosses + 1)}
+                      className="w-8 h-8 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black flex items-center justify-center text-base"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Clean sheet toggle */}
+              <label className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-950 border border-slate-800 cursor-pointer hover:bg-slate-950/80">
+                <input
+                  type="checkbox"
+                  checked={matchCleanSheet}
+                  onChange={e => setMatchCleanSheet(e.target.checked)}
+                  className="w-5 h-5 rounded-md accent-emerald-500 cursor-pointer"
+                />
+                <span className="text-xs font-bold text-slate-200">
+                  🧤 Kept a Clean Sheet (Zero goals conceded by team/defense)
+                </span>
+              </label>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-300 mb-1.5">
+                  Game Notes / Highlights:
+                </label>
+                <input
+                  type="text"
+                  value={matchNotes}
+                  onChange={e => setMatchNotes(e.target.value)}
+                  placeholder="e.g. Scored top corner off a great through ball! Won 3-1."
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsMatchModalOpen(false)}
+                  className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+                >
+                  <Award className="w-4 h-4" /> Save & Claim Badges!
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

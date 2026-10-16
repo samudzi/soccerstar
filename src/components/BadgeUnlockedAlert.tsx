@@ -37,7 +37,7 @@ export const BadgeUnlockedAlert: React.FC<BadgeUnlockedAlertProps> = ({
       <div className="bg-gradient-to-b from-slate-900 to-amber-950/40 border-2 border-amber-400/60 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl relative animate-fade-in">
         <button
           onClick={onDismiss}
-          className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors"
+          className="absolute top-4 right-4 p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -81,7 +81,7 @@ export const BadgeUnlockedAlert: React.FC<BadgeUnlockedAlertProps> = ({
               onDismiss();
               onViewBadges();
             }}
-            className="flex-1 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider transition-colors"
+            className="flex-1 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs uppercase tracking-wider transition-colors border border-slate-700 hover:border-slate-600 shadow-sm"
           >
             View All Badges
           </button>
