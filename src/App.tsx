@@ -17,10 +17,16 @@ import {
   savePlayerProfile,
   saveWorkouts,
   saveCalendarCustomEvents,
+  getBadgeMap,
+  saveBadgeMap,
+  mergeWorkouts,
+  mergeBadgeMaps,
+  mergeCalendarEvents,
+  mergeProfiles,
 } from './utils/storage';
 import { sound } from './utils/sound';
 import { auth } from './utils/firebase';
-import { loadFromCloud, saveToCloud, hydrateBadges } from './utils/cloudStorage';
+import { loadFromCloud, saveToCloud, subscribeToCloud, CloudPlayerData } from './utils/cloudStorage';
 import { 
   onAuthStateChanged, 
   signInWithPopup, 
@@ -56,6 +62,8 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncSuccess, setSyncSuccess] = useState(false);
   
   // Navigation tabs: 'calendar' | 'drills' | 'badges'
   const [activeTab, setActiveTab] = useState<'calendar' | 'drills' | 'badges'>('calendar');
@@ -69,29 +77,102 @@ export default function App() {
   const [isWeeklySummaryOpen, setIsWeeklySummaryOpen] = useState(false);
   const [newlyUnlockedBadges, setNewlyUnlockedBadges] = useState<Badge[]>([]);
 
-  // Listen for auth state changes
+  // Listen for auth state changes and subscribe to real-time cloud updates
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let cloudUnsub: (() => void) | null = null;
+
+    const authUnsub = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       setAuthLoading(false);
 
+      if (cloudUnsub) {
+        cloudUnsub();
+        cloudUnsub = null;
+      }
+
       if (firebaseUser) {
-        // Signed in — load from cloud, merge into localStorage
         setSyncing(true);
-        const cloudData = await loadFromCloud(firebaseUser.uid);
-        if (cloudData) {
-          savePlayerProfile(cloudData.profile);
-          saveWorkouts(cloudData.workouts);
-          saveCalendarCustomEvents(cloudData.calendarEvents);
-          refreshAllData();
-        } else {
-          // First sign-in: push existing localStorage data to cloud
-          await pushLocalToCloud(firebaseUser.uid);
+        setSyncError(null);
+
+        try {
+          // 1. Initial fetch from cloud
+          const cloudData = await loadFromCloud(firebaseUser.uid);
+
+          const localWorkouts = getWorkouts();
+          const localProfile = getPlayerProfile();
+          const localBadges = getBadgeMap();
+          const localEvents = getCalendarCustomEvents();
+
+          if (cloudData) {
+            // Non-destructively merge cloud and local data
+            const mergedWorkouts = mergeWorkouts(cloudData.workouts, localWorkouts);
+            const mergedProfile = mergeProfiles(cloudData.profile, localProfile);
+            const mergedBadges = mergeBadgeMaps(cloudData.badgeMap, localBadges);
+            const mergedEvents = mergeCalendarEvents(cloudData.calendarEvents, localEvents);
+
+            savePlayerProfile(mergedProfile);
+            saveWorkouts(mergedWorkouts);
+            saveBadgeMap(mergedBadges);
+            saveCalendarCustomEvents(mergedEvents);
+            refreshAllData();
+
+            // Push merged data back to ensure cloud has the latest complete state
+            await saveToCloud(firebaseUser.uid, {
+              profile: mergedProfile,
+              workouts: mergedWorkouts,
+              badgeMap: mergedBadges,
+              calendarEvents: mergedEvents,
+            });
+          } else {
+            // First time sign-in: upload local data
+            await saveToCloud(firebaseUser.uid, {
+              profile: localProfile,
+              workouts: localWorkouts,
+              badgeMap: localBadges,
+              calendarEvents: localEvents,
+            });
+          }
+
+          setSyncSuccess(true);
+          setTimeout(() => setSyncSuccess(false), 3000);
+
+          // 2. Subscribe to real-time multi-device updates
+          cloudUnsub = subscribeToCloud(
+            firebaseUser.uid,
+            (incomingData) => {
+              if (!incomingData) return;
+              if (incomingData.profile) savePlayerProfile(incomingData.profile);
+              if (incomingData.workouts) saveWorkouts(incomingData.workouts);
+              if (incomingData.badgeMap) saveBadgeMap(incomingData.badgeMap);
+              if (incomingData.calendarEvents) saveCalendarCustomEvents(incomingData.calendarEvents);
+              refreshAllData();
+            },
+            (err: any) => {
+              console.error('[App] Real-time sync error:', err);
+              if (err?.message && err.message.includes('permission')) {
+                setSyncError('Firestore permission denied. Check your Firestore Security Rules in Firebase Console.');
+              } else {
+                setSyncError(err?.message || 'Real-time sync error');
+              }
+            }
+          );
+        } catch (err: any) {
+          console.error('[App] Cloud sync error:', err);
+          if (err?.message && err.message.includes('permission')) {
+            setSyncError('Firestore permission denied. Check your Firestore Security Rules in Firebase Console.');
+          } else {
+            setSyncError(err?.message || 'Cloud sync failed');
+          }
+        } finally {
+          setSyncing(false);
         }
-        setSyncing(false);
       }
     });
-    return unsubscribe;
+
+    return () => {
+      authUnsub();
+      if (cloudUnsub) cloudUnsub();
+    };
   }, []);
 
   // Seed sample data on initial visit if empty
@@ -113,35 +194,34 @@ export default function App() {
     setCustomEvents(getCalendarCustomEvents());
   };
 
-  const pushLocalToCloud = async (uid: string) => {
-    const currentWorkouts = getWorkouts();
-    const currentProfile = getPlayerProfile();
-    const currentEvents = getCalendarCustomEvents();
-    const currentBadges = getBadges();
-    const badgeMap: Record<string, string> = {};
-    currentBadges.forEach(b => { if (b.unlockedAt) badgeMap[b.id] = b.unlockedAt; });
-    await saveToCloud(uid, {
-      profile: currentProfile,
-      workouts: currentWorkouts,
-      badgeMap,
-      calendarEvents: currentEvents,
-    });
-  };
-
-  const syncToCloud = async () => {
+  const syncToCloud = async (overrideData?: Partial<CloudPlayerData>) => {
     if (!user) return;
-    const currentWorkouts = getWorkouts();
-    const currentProfile = getPlayerProfile();
-    const currentEvents = getCalendarCustomEvents();
-    const currentBadges = getBadges();
-    const badgeMap: Record<string, string> = {};
-    currentBadges.forEach(b => { if (b.unlockedAt) badgeMap[b.id] = b.unlockedAt; });
-    await saveToCloud(user.uid, {
-      profile: currentProfile,
-      workouts: currentWorkouts,
-      badgeMap,
-      calendarEvents: currentEvents,
-    });
+    try {
+      setSyncing(true);
+      setSyncError(null);
+      const currentWorkouts = overrideData?.workouts || getWorkouts();
+      const currentProfile = overrideData?.profile || getPlayerProfile();
+      const currentEvents = overrideData?.calendarEvents || getCalendarCustomEvents();
+      const badgeMap = overrideData?.badgeMap || getBadgeMap();
+
+      await saveToCloud(user.uid, {
+        profile: currentProfile,
+        workouts: currentWorkouts,
+        badgeMap,
+        calendarEvents: currentEvents,
+      });
+      setSyncSuccess(true);
+      setTimeout(() => setSyncSuccess(false), 3000);
+    } catch (err: any) {
+      console.error('[App] syncToCloud failed:', err);
+      if (err?.message && err.message.includes('permission')) {
+        setSyncError('Firestore permission denied. Check your Firestore Security Rules in Firebase Console.');
+      } else {
+        setSyncError(err?.message || 'Failed to sync with cloud');
+      }
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const handleGoogleSignIn = async () => {
@@ -190,12 +270,14 @@ export default function App() {
     if (confirm('Reset all progress and start fresh with empty logs?')) {
       clearAllData();
       refreshAllData();
+      if (user) syncToCloud();
     }
   };
 
   const handleLoadSample = () => {
     populateSampleData();
     refreshAllData();
+    if (user) syncToCloud();
   };
 
   const completedDayIds = Array.from(new Set(workouts.map(w => w.dayId)));
@@ -211,7 +293,10 @@ export default function App() {
         totalBadgeCount={badges.length}
         onOpenBadges={() => setIsBadgesModalOpen(true)}
         onOpenParentGuide={() => setIsParentGuideOpen(true)}
-        onProfileUpdated={updated => setProfile(updated)}
+        onProfileUpdated={updated => {
+          setProfile(updated);
+          if (user) syncToCloud({ profile: updated });
+        }}
       />
 
       {/* Auth Bar */}
@@ -221,7 +306,19 @@ export default function App() {
             <span className="text-xs text-slate-500">Loading...</span>
           ) : user ? (
             <div className="flex items-center gap-3">
-              {syncing && <span className="text-xs text-emerald-400 animate-pulse">Syncing…</span>}
+              {syncing ? (
+                <span className="text-xs text-emerald-400 animate-pulse">Syncing…</span>
+              ) : syncSuccess ? (
+                <span className="text-xs text-emerald-400 font-semibold">Cloud Synced ✓</span>
+              ) : (
+                <button
+                  onClick={() => syncToCloud()}
+                  className="text-xs text-slate-400 hover:text-emerald-400 transition-colors"
+                  title="Manual cloud sync"
+                >
+                  Sync Now
+                </button>
+              )}
               <div className="flex items-center gap-2">
                 {user.photoURL && (
                   <img src={user.photoURL} alt={user.displayName || 'User'} className="w-6 h-6 rounded-full" />
@@ -252,6 +349,22 @@ export default function App() {
           )}
         </div>
       </div>
+
+      {/* Sync Error Banner */}
+      {syncError && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2 text-xs text-amber-300">
+          <div className="max-w-6xl mx-auto w-full flex items-center justify-between gap-2">
+            <span>⚠️ {syncError}</span>
+            <button
+              onClick={() => setSyncError(null)}
+              className="text-amber-400 hover:text-white font-bold ml-2"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
 
       {/* Main Container */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -364,7 +477,10 @@ export default function App() {
           <VisualCalendar
             workouts={workouts}
             onStartDayWorkout={dayId => handleStartWorkout(dayId)}
-            onRefreshData={refreshAllData}
+            onRefreshData={() => {
+              refreshAllData();
+              if (user) syncToCloud();
+            }}
             streak={stats.currentStreak}
             weekHomeworkCount={stats.weekHomeworkCount}
             weekGoalTarget={stats.weekGoalTarget}

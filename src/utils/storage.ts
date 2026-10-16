@@ -93,11 +93,30 @@ export function saveCalendarCustomEvents(events: CalendarCustomEvent[]): void {
   }
 }
 
-export function getBadges(): Badge[] {
+export function getBadgeMap(): Record<string, string> {
   try {
     const raw = localStorage.getItem(BADGES_KEY);
     if (raw) {
-      const savedBadges: Record<string, string> = JSON.parse(raw);
+      return JSON.parse(raw);
+    }
+  } catch {
+    // fallback
+  }
+  return {};
+}
+
+export function saveBadgeMap(badgeMap: Record<string, string>): void {
+  try {
+    localStorage.setItem(BADGES_KEY, JSON.stringify(badgeMap || {}));
+  } catch {
+    // Ignore
+  }
+}
+
+export function getBadges(): Badge[] {
+  try {
+    const savedBadges = getBadgeMap();
+    if (savedBadges && Object.keys(savedBadges).length > 0) {
       return INITIAL_BADGES.map(badge => ({
         ...badge,
         unlockedAt: savedBadges[badge.id] || undefined,
@@ -111,11 +130,10 @@ export function getBadges(): Badge[] {
 
 export function unlockBadge(badgeId: string): boolean {
   try {
-    const raw = localStorage.getItem(BADGES_KEY);
-    const map: Record<string, string> = raw ? JSON.parse(raw) : {};
+    const map = getBadgeMap();
     if (!map[badgeId]) {
       map[badgeId] = new Date().toISOString();
-      localStorage.setItem(BADGES_KEY, JSON.stringify(map));
+      saveBadgeMap(map);
       return true;
     }
   } catch {
@@ -123,6 +141,66 @@ export function unlockBadge(badgeId: string): boolean {
   }
   return false;
 }
+
+/**
+ * Merge utilities to intelligently combine cloud & local state without data loss
+ */
+export function mergeWorkouts(cloud: WorkoutRecord[] = [], local: WorkoutRecord[] = []): WorkoutRecord[] {
+  const map = new Map<string, WorkoutRecord>();
+  for (const w of local || []) {
+    if (w && w.id) map.set(w.id, w);
+  }
+  for (const w of cloud || []) {
+    if (w && w.id) map.set(w.id, w);
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    const tA = new Date(a.completedAt || a.date).getTime();
+    const tB = new Date(b.completedAt || b.date).getTime();
+    return tB - tA;
+  });
+}
+
+export function mergeBadgeMaps(cloud: Record<string, string> = {}, local: Record<string, string> = {}): Record<string, string> {
+  const merged: Record<string, string> = { ...(cloud || {}) };
+  for (const [id, date] of Object.entries(local || {})) {
+    if (!merged[id]) {
+      merged[id] = date;
+    } else {
+      const cloudTime = new Date(merged[id]).getTime();
+      const localTime = new Date(date).getTime();
+      if (!isNaN(localTime) && (isNaN(cloudTime) || localTime < cloudTime)) {
+        merged[id] = date;
+      }
+    }
+  }
+  return merged;
+}
+
+export function mergeCalendarEvents(cloud: CalendarCustomEvent[] = [], local: CalendarCustomEvent[] = []): CalendarCustomEvent[] {
+  const map = new Map<string, CalendarCustomEvent>();
+  for (const e of local || []) {
+    if (e && e.date && e.type) map.set(`${e.date}_${e.type}`, e);
+  }
+  for (const e of cloud || []) {
+    if (e && e.date && e.type) map.set(`${e.date}_${e.type}`, e);
+  }
+  return Array.from(map.values());
+}
+
+export function mergeProfiles(cloud?: PlayerProfile, local?: PlayerProfile): PlayerProfile {
+  if (!cloud && !local) return DEFAULT_PROFILE;
+  if (!cloud) return local!;
+  if (!local) return cloud;
+  const isLocalDefault = (local.currentXp === 0 || local.currentXp === 150) && local.name === 'Leo';
+  if (isLocalDefault && (cloud.currentXp > 0 || cloud.name !== 'Leo')) {
+    return cloud;
+  }
+  if ((cloud.currentXp || 0) >= (local.currentXp || 0)) {
+    return { ...local, ...cloud };
+  }
+  return { ...cloud, ...local };
+}
+
 
 /**
  * Calculates XP level title and progress percentage
